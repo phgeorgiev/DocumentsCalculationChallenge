@@ -7,5 +7,6 @@ import lombok.Data;
 @Builder
 public class CalculateResponse {
 
+  private String currency;
   private CustomerResponse[] customers;
 }

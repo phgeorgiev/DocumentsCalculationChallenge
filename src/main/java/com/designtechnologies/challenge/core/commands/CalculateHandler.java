@@ -1,29 +1,32 @@
 package com.designtechnologies.challenge.core.commands;
 
+import com.designtechnologies.challenge.core.documents.CustomExchangeRateProvider;
 import com.designtechnologies.challenge.core.documents.Customer;
 import com.designtechnologies.challenge.core.documents.CustomerRegistry;
 import com.designtechnologies.challenge.core.documents.Invoice;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.money.Monetary;
 import org.javamoney.moneta.Money;
 
 public class CalculateHandler {
 
   private final CustomerRegistry customerRegistry;
+  private final CustomExchangeRateProvider rateProvider;
 
-  public CalculateHandler(CustomerRegistry customerRegistry) {
+  public CalculateHandler(CustomerRegistry customerRegistry, CustomExchangeRateProvider rateProvider) {
     this.customerRegistry = customerRegistry;
+    this.rateProvider = rateProvider;
   }
 
   public CalculateResponse handle(CalculateRequest request) {
-    return createResponse(
-        Arrays.stream(request.getDocuments())
-            .map(this::createCustomer)
-            .collect(Collectors.toCollection(ArrayList::new))
-    );
+    rateProvider.setRates(request.getExchangeRates());
+
+    Arrays.stream(request.getDocuments())
+        .map(this::createCustomer)
+        .forEach(customerRegistry::addCustomer);
+
+    return createResponse(request.getOutputCurrency(), customerRegistry.getAll());
   }
 
   private Customer createCustomer(DocumentRequest document) {
@@ -33,7 +36,6 @@ public class CalculateHandler {
             .vatNumber(document.getVatNumber())
             .build());
 
-    customerRegistry.addCustomer(customer);
     customer.addInvoice(createInvoice(document));
     return customer;
   }
@@ -44,15 +46,16 @@ public class CalculateHandler {
         .build();
   }
 
-  private CalculateResponse createResponse(List<Customer> customers) {
+  private CalculateResponse createResponse(String outputCurrency, List<Customer> customers) {
     return CalculateResponse.builder()
+        .currency(outputCurrency)
         .customers(
             customers.stream()
                 .map(customer -> CustomerResponse.builder()
                     .name(customer.getName())
                     .balance(
                         Monetary.getDefaultRounding()
-                            .apply(customer.calculateTotal())
+                            .apply(customer.calculateTotal(Monetary.getCurrency(outputCurrency), rateProvider))
                             .getNumber()
                             .doubleValue())
                     .build())
