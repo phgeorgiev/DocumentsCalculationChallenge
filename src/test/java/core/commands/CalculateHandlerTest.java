@@ -20,10 +20,7 @@ public class CalculateHandlerTest {
 
   @BeforeEach
   public void setUp() {
-    useCase = new CalculateHandler(
-        new CustomerRegistry(),
-        new CustomExchangeRateProvider()
-    );
+    useCase = new CalculateHandler(new CustomerRegistry(), new CustomExchangeRateProvider());
   }
 
   @Test
@@ -59,6 +56,24 @@ public class CalculateHandlerTest {
             DocumentRequest.builder()
                 .customer("Vendor 1")
                 .vatNumber("123456789")
+                .documentNumber(1000000260)
+                .parentDocument(1000000257)
+                .type(2)
+                .currency("EUR")
+                .total(100)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000261)
+                .parentDocument(1000000257)
+                .type(3)
+                .currency("GBP")
+                .total(50)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
                 .documentNumber(1000000264)
                 .type(1)
                 .currency("EUR")
@@ -72,7 +87,7 @@ public class CalculateHandlerTest {
         .customers(
             new CustomerResponse[]{
                 CustomerResponse.builder()
-                    .balance(2005.27)
+                    .balance(1962.22)
                     .name("Vendor 1")
                     .build(),
                 CustomerResponse.builder()
@@ -109,5 +124,111 @@ public class CalculateHandlerTest {
 
     RuntimeException exception = assertThrows(RuntimeException.class, () -> useCase.handle(request));
     assertThat(exception.getMessage(), equalTo("Default currency must be specified by giving it an exchange rate of 1"));
+  }
+
+  @Test
+  public void throwErrorWhenTheTotalOfAllCreditNotesIsBiggerThanSumOfTheInvoice() {
+    CalculateRequest request = CalculateRequest.builder()
+        .exchangeRates("EUR:1,USD:0.987,GBP:0.878")
+        .outputCurrency("EUR")
+        .documents(new DocumentRequest[]{
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000257)
+                .type(1)
+                .currency("USD")
+                .total(400)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000260)
+                .parentDocument(1000000257)
+                .type(2)
+                .currency("EUR")
+                .total(100)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000261)
+                .parentDocument(1000000257)
+                .type(2)
+                .currency("GBP")
+                .total(350)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000264)
+                .type(1)
+                .currency("EUR")
+                .total(1600)
+                .build()
+        })
+        .build();
+
+    RuntimeException exception = assertThrows(RuntimeException.class, () -> useCase.handle(request));
+    assertThat(exception.getMessage(), equalTo("Invoice (1000000257) sum must greater or equal to 0"));
+  }
+
+  @Test
+  public void throwErrorOnMissingSpecifiedParent() {
+    CalculateRequest request = CalculateRequest.builder()
+        .exchangeRates("EUR:1,USD:0.987,GBP:0.878")
+        .outputCurrency("EUR")
+        .documents(new DocumentRequest[]{
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000257)
+                .type(1)
+                .currency("USD")
+                .total(400)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000260)
+                .parentDocument(1000000000)
+                .type(2)
+                .currency("EUR")
+                .total(100)
+                .build()
+        })
+        .build();
+
+    RuntimeException exception = assertThrows(RuntimeException.class, () -> useCase.handle(request));
+    assertThat(exception.getMessage(), equalTo("Parent document (1000000000) is missing"));
+  }
+
+  @Test
+  public void throwErrorOnNoteWithoutParent() {
+    CalculateRequest request = CalculateRequest.builder()
+        .exchangeRates("EUR:1,USD:0.987,GBP:0.878")
+        .outputCurrency("EUR")
+        .documents(new DocumentRequest[]{
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000257)
+                .type(1)
+                .currency("USD")
+                .total(400)
+                .build(),
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000260)
+                .type(2)
+                .currency("EUR")
+                .total(100)
+                .build()
+        })
+        .build();
+
+    IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> useCase.handle(request));
+    assertThat(exception.getMessage(), equalTo("Parent document is required"));
   }
 }

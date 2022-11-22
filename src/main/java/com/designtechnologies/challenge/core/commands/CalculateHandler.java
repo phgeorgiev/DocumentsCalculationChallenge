@@ -1,8 +1,11 @@
 package com.designtechnologies.challenge.core.commands;
 
+import com.designtechnologies.challenge.core.documents.AbstractDocument;
+import com.designtechnologies.challenge.core.documents.CreditNote;
 import com.designtechnologies.challenge.core.documents.CustomExchangeRateProvider;
 import com.designtechnologies.challenge.core.documents.Customer;
 import com.designtechnologies.challenge.core.documents.CustomerRegistry;
+import com.designtechnologies.challenge.core.documents.DebitNote;
 import com.designtechnologies.challenge.core.documents.Invoice;
 import java.util.Arrays;
 import java.util.List;
@@ -23,26 +26,66 @@ public class CalculateHandler {
     rateProvider.setRates(request.getExchangeRates());
 
     Arrays.stream(request.getDocuments())
-        .map(this::createCustomer)
+        .map(this::createCustomerWithInvoices)
         .forEach(customerRegistry::addCustomer);
+
+    Arrays.stream(request.getDocuments())
+        .forEach(this::addNoteToInvoice);
 
     return createResponse(request.getOutputCurrency(), customerRegistry.getAll());
   }
 
-  private Customer createCustomer(DocumentRequest document) {
+  private Customer createCustomerWithInvoices(DocumentRequest document) {
     Customer customer = customerRegistry.getCustomer(document.getCustomer())
         .orElseGet(() -> Customer.builder()
             .name(document.getCustomer())
             .vatNumber(document.getVatNumber())
             .build());
 
-    customer.addInvoice(createInvoice(document));
+    if (document.getType() == 1) {
+      customer.addInvoice(createInvoice(document));
+    }
+
     return customer;
   }
 
   private Invoice createInvoice(DocumentRequest document) {
     return Invoice.builder()
-        .total(Money.of(document.getTotal(), Monetary.getCurrency(document.getCurrency())))
+        .number(document.getDocumentNumber())
+        .amount(Money.of(document.getTotal(), Monetary.getCurrency(document.getCurrency())))
+        .build();
+  }
+
+  private void addNoteToInvoice(DocumentRequest document) {
+    if (document.getType() == 1) {
+      return;
+    }
+
+    if (document.getParentDocument() == null) {
+      throw new IllegalArgumentException("Parent document is required");
+    }
+
+    customerRegistry
+        .getCustomer(document.getCustomer())
+        .ifPresent(customer -> customer
+            .getInvoice(document.getParentDocument())
+            .orElseThrow(() -> new RuntimeException("Parent document (%d) is missing".formatted(document.getParentDocument())))
+            .addNote(createNote(document))
+        );
+  }
+
+  private AbstractDocument createNote(DocumentRequest document) {
+    if (document.getType() != 2 && document.getType() != 3) {
+      throw new RuntimeException("Invalid type");
+    }
+
+    var note = document.getType() == 2
+        ? CreditNote.builder()
+        : DebitNote.builder();
+
+    return note
+        .number(document.getDocumentNumber())
+        .amount(Money.of(document.getTotal(), Monetary.getCurrency(document.getCurrency())))
         .build();
   }
 

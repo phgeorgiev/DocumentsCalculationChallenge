@@ -9,9 +9,9 @@ public class DocumentRequest {
 
   private String customer;
   private String vatNumber;
-  private int documentNumber;
+  private Integer documentNumber;
   private int type;
-  private int parentDocument;
+  private Integer parentDocument;
   private String currency;
   private double total;
 }

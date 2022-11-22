@@ -1,7 +1,9 @@
 package com.designtechnologies.challenge.core.documents;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import javax.money.CurrencyUnit;
 import javax.money.MonetaryAmount;
 import javax.money.convert.CurrencyConversion;
@@ -14,19 +16,23 @@ import org.javamoney.moneta.Money;
 @Builder
 public class Customer {
 
-  private final List<Invoice> invoices = new LinkedList<>();
+  private final Map<Integer, Invoice> invoices = new HashMap<>();
   private String name;
   private String vatNumber;
 
   public void addInvoice(Invoice invoice) {
-    invoices.add(invoice);
+    invoices.put(invoice.getNumber(), invoice);
+  }
+
+  public Optional<Invoice> getInvoice(int number) {
+    return Optional.ofNullable(invoices.getOrDefault(number, null));
   }
 
   public MonetaryAmount calculateTotal(CurrencyUnit currency, ExchangeRateProvider rateProvider) {
     CurrencyConversion conversion = rateProvider.getCurrencyConversion(currency);
 
-    return invoices.stream()
-        .map(invoice -> conversion.apply(invoice.getTotal()))
+    return new ArrayList<>(invoices.values()).stream()
+        .map(invoice -> conversion.apply(invoice.getTotal(currency, rateProvider)))
         .reduce(Money.of(0, currency), MonetaryAmount::add);
   }
 }
