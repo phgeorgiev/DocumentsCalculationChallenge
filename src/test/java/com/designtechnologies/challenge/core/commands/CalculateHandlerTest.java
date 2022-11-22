@@ -1,14 +1,9 @@
-package core.commands;
+package com.designtechnologies.challenge.core.commands;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.designtechnologies.challenge.core.commands.CalculateHandler;
-import com.designtechnologies.challenge.core.commands.CalculateRequest;
-import com.designtechnologies.challenge.core.commands.CalculateResponse;
-import com.designtechnologies.challenge.core.commands.CustomerResponse;
-import com.designtechnologies.challenge.core.commands.DocumentRequest;
 import com.designtechnologies.challenge.core.documents.CustomExchangeRateProvider;
 import com.designtechnologies.challenge.core.documents.CustomerRegistry;
 import org.junit.jupiter.api.BeforeEach;
