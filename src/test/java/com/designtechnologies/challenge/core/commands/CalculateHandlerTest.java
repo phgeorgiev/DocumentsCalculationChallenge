@@ -297,4 +297,25 @@ public class CalculateHandlerTest {
     RuntimeException exception = assertThrows(RuntimeException.class, () -> useCase.handle(request));
     assertThat(exception.getMessage(), equalTo("Missing customer (missingNumber)"));
   }
+
+  @Test
+  public void throwErrorOnUnsupportedCurrency() {
+    CalculateRequest request = CalculateRequest.builder()
+        .exchangeRates("EUR:1,USD:0.987,GBP:0.878")
+        .outputCurrency("GBP")
+        .documents(new DocumentRequest[]{
+            DocumentRequest.builder()
+                .customer("Vendor 1")
+                .vatNumber("123456789")
+                .documentNumber(1000000257)
+                .type(1)
+                .currency("BGN")
+                .total(400)
+                .build()
+        })
+        .build();
+
+    IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> useCase.handle(request));
+    assertThat(exception.getMessage(), equalTo("Unsupported currency BGN"));
+  }
 }

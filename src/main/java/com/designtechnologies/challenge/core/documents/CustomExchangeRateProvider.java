@@ -23,9 +23,14 @@ public class CustomExchangeRateProvider extends AbstractRateProvider {
   @Override
   public ExchangeRate getExchangeRate(ConversionQuery conversionQuery) {
     CurrencyUnit baseCurrency = conversionQuery.getBaseCurrency();
+    CurrencyUnit fromCurrency = conversionQuery.getCurrency();
+
+    isCurrencySupported(baseCurrency);
+    isCurrencySupported(fromCurrency);
+
     return new ExchangeRateBuilder(getContext().getProviderName(), RateType.ANY)
         .setBase(baseCurrency)
-        .setTerm(conversionQuery.getCurrency())
+        .setTerm(fromCurrency)
         .setFactor(DefaultNumberValue.of(1 / rates.get(baseCurrency.getCurrencyCode())))
         .build();
   }
@@ -37,6 +42,12 @@ public class CustomExchangeRateProvider extends AbstractRateProvider {
 
     if (!rates.containsValue(1.0)) {
       throw new RuntimeException("Default currency must be specified by giving it an exchange rate of 1");
+    }
+  }
+
+  private void isCurrencySupported(CurrencyUnit currency) {
+    if (!rates.containsKey(currency.getCurrencyCode())) {
+      throw new IllegalArgumentException("Unsupported currency %s".formatted(currency.getCurrencyCode()));
     }
   }
 }
