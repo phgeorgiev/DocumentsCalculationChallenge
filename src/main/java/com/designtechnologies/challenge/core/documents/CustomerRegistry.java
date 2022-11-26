@@ -15,11 +15,11 @@ public class CustomerRegistry {
   }
 
   public void addCustomer(Customer customer) {
-    customers.put(customer.getName(), customer);
+    customers.put(customer.getVatNumber(), customer);
   }
 
-  public Optional<Customer> getCustomer(String name) {
-    return Optional.ofNullable(customers.getOrDefault(name, null));
+  public Optional<Customer> getCustomer(String vatNumber) {
+    return Optional.ofNullable(customers.getOrDefault(vatNumber, null));
   }
 
   public List<Customer> getAll() {

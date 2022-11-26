@@ -9,6 +9,8 @@ import com.designtechnologies.challenge.core.documents.DebitNote;
 import com.designtechnologies.challenge.core.documents.Invoice;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.money.Monetary;
 import org.javamoney.moneta.Money;
 
@@ -32,11 +34,22 @@ public class CalculateHandler {
     Arrays.stream(request.getDocuments())
         .forEach(this::addNoteToInvoice);
 
-    return createResponse(request.getOutputCurrency(), customerRegistry.getAll());
+    List<Customer> customers = Optional.ofNullable(request.getVatNumber())
+        .stream()
+        .map(customerRegistry::getCustomer)
+        .map(customer -> customer.orElseThrow(
+              () -> new RuntimeException("Missing customer (%s)".formatted(request.getVatNumber()))
+            )
+        )
+        .collect(Collectors.toList());
+    return createResponse(
+        request.getOutputCurrency(),
+        customers.isEmpty() ? customerRegistry.getAll() : customers
+    );
   }
 
   private Customer createCustomerWithInvoices(DocumentRequest document) {
-    Customer customer = customerRegistry.getCustomer(document.getCustomer())
+    Customer customer = customerRegistry.getCustomer(document.getVatNumber())
         .orElseGet(() -> Customer.builder()
             .name(document.getCustomer())
             .vatNumber(document.getVatNumber())
@@ -66,7 +79,7 @@ public class CalculateHandler {
     }
 
     customerRegistry
-        .getCustomer(document.getCustomer())
+        .getCustomer(document.getVatNumber())
         .ifPresent(customer -> customer
             .getInvoice(document.getParentDocument())
             .orElseThrow(() -> new RuntimeException("Parent document (%d) is missing".formatted(document.getParentDocument())))
@@ -94,16 +107,20 @@ public class CalculateHandler {
         .currency(outputCurrency)
         .customers(
             customers.stream()
-                .map(customer -> CustomerResponse.builder()
-                    .name(customer.getName())
-                    .balance(
-                        Monetary.getDefaultRounding()
-                            .apply(customer.calculateTotal(Monetary.getCurrency(outputCurrency), rateProvider))
-                            .getNumber()
-                            .doubleValue())
-                    .build())
+                .map(customer -> createCustomerResponse(outputCurrency, customer))
                 .toArray(CustomerResponse[]::new)
         )
+        .build();
+  }
+
+  private CustomerResponse createCustomerResponse(String outputCurrency, Customer customer) {
+    return CustomerResponse.builder()
+        .name(customer.getName())
+        .balance(
+            Monetary.getDefaultRounding()
+                .apply(customer.calculateTotal(Monetary.getCurrency(outputCurrency), rateProvider))
+                .getNumber()
+                .doubleValue())
         .build();
   }
 }
